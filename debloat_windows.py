@@ -21,6 +21,9 @@ def log(message):
     logging.info(message)
     print(message)
 
+def show_error_message(message):
+    ctypes.windll.user32.MessageBoxW(0, message, "Error", 0x10)
+
 def is_admin():
     try:
         return ctypes.windll.shell32.IsUserAnAdmin()
@@ -58,7 +61,9 @@ def apply_registry_changes():
                     winreg.SetValueEx(key, value_name, 0, value_type, value)
                     log(f"Applied {value_name} to {key_path}")
             except Exception as e:
-                log(f"Failed to modify {value_name} in {key_path}: {e}")
+                error_message = f"Failed to modify {value_name} in {key_path}: {e}"
+                log(error_message)
+                show_error_message(error_message)
         log("Registry changes applied successfully.")
         subprocess.run(["taskkill", "/F", "/IM", "explorer.exe"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         subprocess.run(["start", "explorer.exe"], shell=True)
@@ -67,7 +72,9 @@ def apply_registry_changes():
         log("Edge Vanisher started successfully")
         
     except Exception as e:
-        log(f"Error applying registry changes: {e}")
+        error_message = f"Error applying registry changes: {e}"
+        log(error_message)
+        show_error_message(error_message)
 
 def download_file_with_retries(url, target_path, retries=3, timeout=10):
     for attempt in range(retries):
@@ -86,6 +93,7 @@ def download_file_with_retries(url, target_path, retries=3, timeout=10):
             log(f"Download attempt {attempt + 1} failed: {e}")
             time.sleep(3)
     log(f"Failed to download {url} after {retries} attempts.")
+    show_error_message(f"Failed to download {url} after {retries} attempts.")
     return False
 
 def run_edge_vanisher():
@@ -119,13 +127,19 @@ def run_edge_vanisher():
                 run_oouninstall()
             
     except requests.exceptions.RequestException as e:
-        log(f"Network error during Edge Vanisher script download: {str(e)}")
+        error_message = f"Network error during Edge Vanisher script download: {str(e)}"
+        log(error_message)
+        show_error_message(error_message)
         run_oouninstall()
     except IOError as e:
-        log(f"File I/O error while saving Edge Vanisher script: {str(e)}")
+        error_message = f"File I/O error while saving Edge Vanisher script: {str(e)}"
+        log(error_message)
+        show_error_message(error_message)
         run_oouninstall()
     except Exception as e:
-        log(f"Unexpected error during Edge Vanisher execution: {str(e)}")
+        error_message = f"Unexpected error during Edge Vanisher execution: {str(e)}"
+        log(error_message)
+        show_error_message(error_message)
         run_oouninstall()
 
 def run_oouninstall():
@@ -156,7 +170,9 @@ def run_oouninstall():
                 run_tweaks()
             
     except Exception as e:
-        log(f"Unexpected error during OO uninstallation: {str(e)}")
+        error_message = f"Unexpected error during OO uninstallation: {str(e)}"
+        log(error_message)
+        show_error_message(error_message)
         run_tweaks()
 
 def run_tweaks():
@@ -167,6 +183,7 @@ def run_tweaks():
     
     if not is_admin():
         log("Must be run as an administrator.")
+        show_error_message("Must be run as an administrator.")
         sys.exit(1)
 
     try:
@@ -179,40 +196,18 @@ def run_tweaks():
             log("Config file saved successfully.")
             run_applybackground()
         else:
-            log("Failed to download config file.")
-            run_applybackground()
-
+            log("Failed to download or save the configuration file.")
+            show_error_message("Failed to download or save the configuration file.")
+            
+    except requests.exceptions.RequestException as e:
+        log(f"Network error: {e}")
+        show_error_message(f"Network error: {e}")
     except Exception as e:
-        log(f"Error: {str(e)}")
-        run_applybackground()
+        log(f"Unexpected error: {e}")
+        show_error_message(f"Unexpected error: {e}")
 
 def run_applybackground():
-    log("Starting ApplyBackground tweaks...")
-    try:
-        temp_dir = tempfile.gettempdir()
-        exe_name = "applybackground.exe"
-        exe_path = os.path.join(temp_dir, exe_name)
-        url = "https://github.com/ravendevteam/talon-applybackground/releases/download/v1.0.0/applybackground.exe"
-        
-        if download_file_with_retries(url, exe_path):
-            if not os.path.exists(exe_path):
-                log(f"ApplyBackground not found at: {exe_path}")
-                return
-
-            log(f"Running ApplyBackground from: {exe_path}")
-            process = subprocess.run(
-                [exe_path],
-                capture_output=True,
-                text=True
-            )
-
-            if process.returncode == 0:
-                log("ApplyBackground applied successfully")
-            else:
-                log(f"Error applying ApplyBackground: {process.stderr}")
-            log("ApplyBackground complete")
-    except Exception as e:
-        log(f"Error in ApplyBackground: {str(e)}")
+    log("Apply background change...")
 
 if __name__ == "__main__":
-    run_tweaks()
+    apply_registry_changes()
